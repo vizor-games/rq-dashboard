@@ -5,13 +5,23 @@ import sys
 from urllib.parse import quote as urlquote, urlunparse
 
 import click
-from flask import Flask, Response, request
+from flask import Flask, Response, request, session, redirect, url_for
 
 from . import default_settings
 from .version import VERSION
 from .web import blueprint, setup_rq_connection
 from .web import config as service_config
 from rq.serializers import JSONSerializer
+from .oauth_blueprint import oauth_bp, oauth
+
+WITH_OAUTH = False
+try:
+    from authlib.integrations.flask_client import OAuth
+    from .oauth_blueprint import oauth_bp, oauth
+
+    WITH_OAUTH = True
+except ImportError:
+    WITH_OAUTH = False
 
 
 def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
@@ -32,12 +42,21 @@ def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
             )
 
 
+def add_oauth():
+    @blueprint.before_request
+    def oauth_auth(*args, **kwargs):
+        if 'user' not in session:
+            return redirect(url_for('oauth.login'))
+
+
 def make_flask_app(config, username, password, url_prefix, compatibility_mode=True):
     """Return Flask app with default configuration and registered blueprint."""
     app = Flask(__name__)
 
     # Start configuration with our built in defaults.
     app.config.from_object(default_settings)
+
+    app.config['SECRET_KEY'] = os.environ.get('SECRET_KEY', os.environ.get('FLASK_SECRET_KEY'))
 
     # Override with any settings in config file, if given.
     if config:
@@ -46,6 +65,13 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
     # Override from a configuration file in the env variable, if present.
     if "RQ_DASHBOARD_SETTINGS" in os.environ:
         app.config.from_envvar("RQ_DASHBOARD_SETTINGS")
+
+    # If env variables for oauth and required packages are present add optional oauth protection
+    if all([os.environ.get('OIDC_CLIENT_ID'), os.environ.get('OIDC_CLIENT_SECRET'),
+            os.environ.get('OIDC_SERVER_METADATA_URL')]) and WITH_OAUTH:
+        app.register_blueprint(oauth_bp, url_prefix='/auth')
+        oauth.init_app(app)
+        add_oauth()
 
     # Optionally add basic auth to blueprint and register with app.
     if username:
@@ -163,27 +189,27 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
     "-j", "--json", is_flag=True, default=False, help="Enable JSONSerializer"
 )
 def run(
-    bind,
-    port,
-    url_prefix,
-    username,
-    password,
-    config,
-    redis_host,
-    redis_port,
-    redis_password,
-    redis_database,
-    redis_url,
-    redis_sentinels,
-    redis_master_name,
-    poll_interval,
-    extra_path,
-    web_background,
-    debug,
-    delete_jobs,
-    disable_delete,
-    verbose,
-    json,
+        bind,
+        port,
+        url_prefix,
+        username,
+        password,
+        config,
+        redis_host,
+        redis_port,
+        redis_password,
+        redis_database,
+        redis_url,
+        redis_sentinels,
+        redis_master_name,
+        poll_interval,
+        extra_path,
+        web_background,
+        debug,
+        delete_jobs,
+        disable_delete,
+        verbose,
+        json,
 ):
     """Run the RQ Dashboard Flask server.
 
