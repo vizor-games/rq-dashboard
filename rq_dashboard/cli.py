@@ -42,14 +42,15 @@ def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
             )
 
 
-def add_oauth():
+def add_oauth_auth():
     @blueprint.before_request
     def oauth_auth(*args, **kwargs):
         if 'user' not in session:
             return redirect(url_for('oauth.login'))
 
 
-def make_flask_app(config, username, password, url_prefix, compatibility_mode=True):
+def make_flask_app(config, username, password, url_prefix, oauth_client_id, oauth_client_secret,
+                   oauth_client_metadata_url, compatibility_mode=True):
     """Return Flask app with default configuration and registered blueprint."""
     app = Flask(__name__)
 
@@ -66,12 +67,26 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
     if "RQ_DASHBOARD_SETTINGS" in os.environ:
         app.config.from_envvar("RQ_DASHBOARD_SETTINGS")
 
-    # If env variables for oauth and required packages are present add optional oauth protection
-    if all([os.environ.get('OIDC_CLIENT_ID'), os.environ.get('OIDC_CLIENT_SECRET'),
-            os.environ.get('OIDC_SERVER_METADATA_URL')]) and WITH_OAUTH:
-        app.register_blueprint(oauth_bp, url_prefix='/auth')
-        oauth.init_app(app)
-        add_oauth()
+    app.config.setdefault('OIDC_CLIENT_ID', os.environ.get('OIDC_CLIENT_ID'))
+    app.config.setdefault('OIDC_CLIENT_SECRET', os.environ.get('OIDC_CLIENT_SECRET'))
+    app.config.setdefault('OIDC_SERVER_METADATA_URL', os.environ.get('OIDC_SERVER_METADATA_URL'))
+
+    if oauth_client_id:
+        app.config['OIDC_CLIENT_ID'] = oauth_client_id
+    if oauth_client_secret:
+        app.config['OIDC_CLIENT_SECRET'] = oauth_client_secret
+    if oauth_metadata_url:
+        app.config['OIDC_SERVER_METADATA_URL'] = oauth_metadata_url
+
+    if all([app.config['OIDC_CLIENT_ID'], app.config['OIDC_CLIENT_SECRET'], app.config['OIDC_SERVER_METADATA_URL']]):
+        if not WITH_OAUTH:
+            raise RuntimeError(
+                "Please install oauth extension for rq_dashboard."
+            )
+        else:
+            app.register_blueprint(oauth_bp, url_prefix='/auth')
+            oauth.init_app(app)
+            add_oauth_auth()
 
     # Optionally add basic auth to blueprint and register with app.
     if username:
@@ -188,6 +203,21 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
 @click.option(
     "-j", "--json", is_flag=True, default=False, help="Enable JSONSerializer"
 )
+@click.option(
+    "--oauth-client-id",
+    default=None,
+    help="OIDC Client ID."
+)
+@click.option(
+    "--oauth-client-secret",
+    default=None,
+    help="OIDC Client Secret."
+)
+@click.option(
+    "--oauth-server-metadata-url",
+    default=None,
+    help="OIDC Server Metadata URL."
+)
 def run(
         bind,
         port,
@@ -210,6 +240,9 @@ def run(
         disable_delete,
         verbose,
         json,
+        oauth_client_id,
+        oauth_client_secret,
+        oauth_client_metadata_url,
 ):
     """Run the RQ Dashboard Flask server.
 
@@ -226,7 +259,8 @@ def run(
         sys.path += list(extra_path)
 
     click.echo("RQ Dashboard version {}".format(VERSION))
-    app = make_flask_app(config, username, password, url_prefix)
+    app = make_flask_app(config, username, password, url_prefix, oauth_client_id, oauth_client_secret,
+                         oauth_client_metadata_url)
     app.config["DEPRECATED_OPTIONS"] = []
     if app.config.get("RQ_DASHBOARD_REDIS_URL") is None:
         if redis_url:

@@ -35,15 +35,9 @@ def login():
 def auth_callback():
     try:
         token = oauth.oidc_provider.authorize_access_token()
+        logging.warning(token)
         session['user'] = token.get('userinfo')
         return redirect(url_for('rq_dashboard.queues_overview'))
 
     except Exception as e:
         return f"Oauth error: {e}", 400
-
-
-@oauth_bp.route('/')
-def index():
-    if 'user' in session:
-        return redirect(url_for('rq_dashboard.queues_overview'))
-    return redirect(url_for('login'))
