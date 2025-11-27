@@ -5,13 +5,22 @@ import sys
 from urllib.parse import quote as urlquote, urlunparse
 
 import click
-from flask import Flask, Response, request
+from flask import Flask, Response, request, session
 
 from . import default_settings
 from .version import VERSION
 from .web import blueprint, setup_rq_connection
 from .web import config as service_config
 from rq.serializers import JSONSerializer
+
+WITH_OAUTH = False
+try:
+    from authlib.jose import jwt, errors
+    WITH_OAUTH = True
+except ImportError:
+    WITH_OAUTH = False
+
+import textwrap
 
 
 def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
@@ -32,7 +41,33 @@ def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
             )
 
 
-def make_flask_app(config, username, password, url_prefix, compatibility_mode=True):
+def add_oauth2_token_validation():
+    @blueprint.before_request
+    def basic_http_auth():
+        try:
+            encoded_jwt = request.headers.get('X-Forwarded-Access-Token')
+            logging.warning('here')
+            logging.warning(encoded_jwt)
+            if encoded_jwt:
+                base64_key_clean = os.environ.get('PUBLIC_KEY').replace('\n', '').replace('\r', '').replace(' ', '')
+                key_formatted = textwrap.fill(base64_key_clean, 64)
+                key = (
+                    '-----BEGIN PUBLIC KEY-----\n'
+                    f'{key_formatted}\n'
+                    '-----END PUBLIC KEY-----'
+                )
+                payload = jwt.decode(encoded_jwt, key)
+                logging.warning(payload)
+                payload.validate()
+                return None
+            else:
+                return "<h1>403 Not authorized (oauth2_proxy)</h1>", 403
+        except errors.JoseError as ex:
+            logging.warning(ex)
+            return "<h1>403 Not authorized (oauth2_proxy)</h1>", 403
+
+
+def make_flask_app(config, username, password, url_prefix, oidc_public_key, compatibility_mode=True):
     """Return Flask app with default configuration and registered blueprint."""
     app = Flask(__name__)
 
@@ -46,6 +81,24 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
     # Override from a configuration file in the env variable, if present.
     if "RQ_DASHBOARD_SETTINGS" in os.environ:
         app.config.from_envvar("RQ_DASHBOARD_SETTINGS")
+
+    app.config.setdefault('OIDC_PUBLIC_KEY', os.environ.get('OIDC_PUBLIC_KEY'))
+
+    if oidc_public_key:
+        app.config['OIDC_PUBLIC_KEY'] = oidc_public_key
+
+    if app.config['OIDC_PUBLIC_KEY']:
+        if not WITH_OAUTH:
+            raise RuntimeError(
+                "Please install oauth extension for rq_dashboard."
+            )
+        else:
+            add_oauth2_token_validation()
+    else:
+        if WITH_OAUTH:
+            raise RuntimeError(
+                "Please set OIDC_PUBLIC_KEY environment variable or --oidc-public-key parameter in cmd"
+            )
 
     # Optionally add basic auth to blueprint and register with app.
     if username:
@@ -162,6 +215,9 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
 @click.option(
     "-j", "--json", is_flag=True, default=False, help="Enable JSONSerializer"
 )
+@click.option(
+    "--oidc-public-key", default=None, help="Public key for OIDC provider (needed if ouath2_proxy is used)"
+)
 def run(
     bind,
     port,
@@ -184,6 +240,7 @@ def run(
     disable_delete,
     verbose,
     json,
+    oidc_public_key
 ):
     """Run the RQ Dashboard Flask server.
 
@@ -200,7 +257,7 @@ def run(
         sys.path += list(extra_path)
 
     click.echo("RQ Dashboard version {}".format(VERSION))
-    app = make_flask_app(config, username, password, url_prefix)
+    app = make_flask_app(config, username, password, url_prefix, oidc_public_key)
     app.config["DEPRECATED_OPTIONS"] = []
     if app.config.get("RQ_DASHBOARD_REDIS_URL") is None:
         if redis_url:

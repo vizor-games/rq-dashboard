@@ -15,7 +15,6 @@ def get_version():
 with open("README.md", "r") as fh:
     long_description = fh.read()
 
-
 setup(
     name='rq-dashboard',
     version=get_version(),
@@ -32,6 +31,12 @@ setup(
     zip_safe=False,
     platforms='any',
     install_requires=['rq>=1.0', 'Flask', 'redis', 'arrow', 'redis-sentinel-url'],
+    extras_require={
+        'oauth2_proxy': [
+            'authlib>=1.0.1',
+            'cryptography'
+        ],
+    },
     entry_points={
         'console_scripts': [
             'rq-dashboard = rq_dashboard.cli:main'
