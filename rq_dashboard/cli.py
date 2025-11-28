@@ -46,10 +46,9 @@ def add_oauth2_token_validation():
     def basic_http_auth():
         try:
             encoded_jwt = request.headers.get('X-Forwarded-Access-Token')
-            logging.warning('here')
             logging.warning(encoded_jwt)
             if encoded_jwt:
-                base64_key_clean = os.environ.get('PUBLIC_KEY').replace('\n', '').replace('\r', '').replace(' ', '')
+                base64_key_clean = os.environ.get('OIDC_PUBLIC_KEY').replace('\n', '').replace('\r', '').replace(' ', '')
                 key_formatted = textwrap.fill(base64_key_clean, 64)
                 key = (
                     '-----BEGIN PUBLIC KEY-----\n'
