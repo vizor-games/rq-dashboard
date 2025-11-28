@@ -32,7 +32,7 @@ setup(
     platforms='any',
     install_requires=['rq>=1.0', 'Flask', 'redis', 'arrow', 'redis-sentinel-url'],
     extras_require={
-        'oauth2_proxy': [
+        'oauth2': [
             'authlib>=1.0.1',
             'cryptography'
         ],
