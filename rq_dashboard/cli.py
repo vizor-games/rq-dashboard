@@ -5,7 +5,7 @@ import sys
 from urllib.parse import quote as urlquote, urlunparse
 
 import click
-from flask import Flask, Response, request, session
+from flask import Flask, Response, request
 
 from . import default_settings
 from .version import VERSION
