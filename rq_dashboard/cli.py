@@ -20,8 +20,6 @@ try:
 except ImportError:
     WITH_OAUTH = False
 
-import textwrap
-
 
 def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
     """Add HTTP Basic Auth to a blueprint.
