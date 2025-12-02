@@ -80,12 +80,13 @@ def make_flask_app(config, username, password, url_prefix, oauth2_token_verifica
         app.config['OAUTH2_TOKEN_VERIFICATION_HEADER'] = oauth2_token_verification_header
 
     if app.config['OAUTH2_TOKEN_VERIFICATION_KEY'] and app.config['OAUTH2_TOKEN_VERIFICATION_HEADER']:
-        if not WITH_OAUTH:
+        if WITH_OAUTH:
+            add_oauth2_token_validation(app.config['OAUTH2_TOKEN_VERIFICATION_KEY'],
+                                        app.config['OAUTH2_TOKEN_VERIFICATION_HEADER'])
+        else:
             raise RuntimeError(
                 "Please install oauth extension for rq_dashboard."
             )
-        else:
-            add_oauth2_token_validation(app.config['OAUTH2_TOKEN_VERIFICATION_KEY'], app.config['OAUTH2_TOKEN_VERIFICATION_HEADER'])
 
     # Optionally add basic auth to blueprint and register with app.
     if username:
@@ -203,10 +204,10 @@ def make_flask_app(config, username, password, url_prefix, oauth2_token_verifica
     "-j", "--json", is_flag=True, default=False, help="Enable JSONSerializer"
 )
 @click.option(
-    "--oauth2-token-verification-key", default=None, help="Verification key for oauth2 access_token verification (when oauth2 provider is used as middleware or reverse proxy. For example: oauth2_proxy+KeyCloak)"
+    "--oauth2-token-verification-key", default=None, help="Verification key for oauth2 access_token verification (when oauth2 provider is used as middleware or reverse proxy. For example: oauth2_proxy+KeyCloak. oauth2 extension is required"
 )
 @click.option(
-    "--oauth2-token-verification-header", default=None, help="Name for header containing oauth2 jwt token (for example for oauth2_proxy it will be 'X-Forwarded-Access-Token')"
+    "--oauth2-token-verification-header", default=None, help="Name for header containing oauth2 jwt token (for example for oauth2_proxy it will be 'X-Forwarded-Access-Token'). oauth2 extension is required"
 )
 def run(
     bind,
