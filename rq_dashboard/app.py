@@ -55,6 +55,13 @@ def _apply_environment_config(app, url_prefix: str) -> None:
         except ValueError:
             pass
 
+    max_length_env = os.environ.get("RQ_DASHBOARD_MAX_ARG_LENGTH")
+    if max_length_env is not None:
+        try:
+            app.config["RQ_DASHBOARD_MAX_ARG_LENGTH"] = int(max_length_env)
+        except ValueError:
+            pass
+
     if _str_to_bool(os.environ.get("RQ_DASHBOARD_JSON_SERIALIZER", "false")):
         service_config.serializer = JSONSerializer
 
@@ -71,6 +78,7 @@ def _apply_environment_config(app, url_prefix: str) -> None:
                 "RQ_DASHBOARD_USERNAME",
                 "RQ_DASHBOARD_PASSWORD",
                 "RQ_DASHBOARD_CONFIG",
+                "RQ_DASHBOARD_MAX_ARG_LENGTH",
             }:
                 continue
             app.config[key] = value
