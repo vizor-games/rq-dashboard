@@ -19,7 +19,9 @@
 
     <script name="job-info" type="text/template">
         <span class="col-6">
-            <p><strong>Description</strong>:<br><%= d.description %></p>
+            <p><strong>Description</strong>:<br>
+                <div class="description-scroll"><%= d.description %></div>
+            </p>
             <p><strong>Origin queue</strong>:<br><%= d.origin %></p>
             <p><strong>Status</strong>:<br><%= d.status %></p>
             <p><strong>Result</strong>:<br><%= JSON.stringify(d.result) %></p>
