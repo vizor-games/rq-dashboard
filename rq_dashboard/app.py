@@ -55,10 +55,10 @@ def _apply_environment_config(app, url_prefix: str) -> None:
         except ValueError:
             pass
 
-    max_length_env = os.environ.get("RQ_DASHBOARD_MAX_ARG_LENGTH")
+    max_length_env = os.environ.get("RQ_DASHBOARD_SHOW_FULL_ARGS")
     if max_length_env is not None:
         try:
-            app.config["RQ_DASHBOARD_MAX_ARG_LENGTH"] = int(max_length_env)
+            app.config["RQ_DASHBOARD_SHOW_FULL_ARGS"] = int(max_length_env)
         except ValueError:
             pass
 
@@ -78,7 +78,7 @@ def _apply_environment_config(app, url_prefix: str) -> None:
                 "RQ_DASHBOARD_USERNAME",
                 "RQ_DASHBOARD_PASSWORD",
                 "RQ_DASHBOARD_CONFIG",
-                "RQ_DASHBOARD_MAX_ARG_LENGTH",
+                "RQ_DASHBOARD_SHOW_FULL_ARGS",
             }:
                 continue
             app.config[key] = value

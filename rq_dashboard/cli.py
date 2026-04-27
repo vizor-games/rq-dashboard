@@ -233,7 +233,7 @@ def run(
     if poll_interval:
         app.config["RQ_DASHBOARD_POLL_INTERVAL"] = poll_interval
     if max_arg_length is not None:
-        app.config["RQ_DASHBOARD_MAX_ARG_LENGTH"] = max_arg_length
+        app.config["RQ_DASHBOARD_SHOW_FULL_ARGS"] = max_arg_length
     # Conditionally disable Flask console messages
     # See: https://stackoverflow.com/questions/14888799
     log = logging.getLogger("werkzeug")
