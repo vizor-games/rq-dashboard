@@ -196,3 +196,15 @@ p.alert-danger {
 #rq-instances:disabled {
     color: black;
 }
+
+.description-scroll {
+    max-height: 200px;          
+    overflow-y: auto;           
+    overflow-wrap: break-word; 
+    background: white;    
+    border: none;              
+    padding: 0;                
+    font-family: 'Helvetica Neue', helvetica, sans-serif;       
+    font-size: inherit;        
+    color: #212529;               
+}

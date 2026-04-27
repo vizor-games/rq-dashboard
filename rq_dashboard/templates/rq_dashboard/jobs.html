@@ -72,7 +72,7 @@
     <script name="job-row" type="text/template">
         <tr data-role="job" data-job-id="<%= d.id %>">
             <td>
-                <span class="description ellipsify"><%= $('<div/>').text(d.description).html() %></span>
+                <span class="description"><%= $('<div/>').text(d.description).html() %></span>
                 <div class="job_id"><a href="<%= url_for_single_job_view(d.id) %>"><%= d.id %></a></div>
                 <% if (d.exc_info) { %>
                 <span class="end_date">Failed <%= d.ended_at %></span>
