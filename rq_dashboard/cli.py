@@ -13,6 +13,13 @@ from .web import blueprint, setup_rq_connection
 from .web import config as service_config
 from rq.serializers import JSONSerializer
 
+WITH_OAUTH = False
+try:
+    from authlib.jose import jwt, errors
+    WITH_OAUTH = True
+except ImportError:
+    WITH_OAUTH = False
+
 
 def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
     """Add HTTP Basic Auth to a blueprint.
@@ -32,7 +39,24 @@ def add_basic_auth(blueprint, username, password, realm="RQ Dashboard"):
             )
 
 
-def make_flask_app(config, username, password, url_prefix, compatibility_mode=True):
+def add_oauth2_token_validation(verification_key, header):
+    @blueprint.before_request
+    def basic_http_auth():
+        try:
+            encoded_jwt = request.headers.get(header)
+            if encoded_jwt:
+                pem_key = '-----BEGIN PUBLIC KEY-----\n' + verification_key + '\n-----END PUBLIC KEY-----'
+                payload = jwt.decode(encoded_jwt, pem_key)
+                payload.validate()
+                return None
+            else:
+                return "[400 Bad Request]", 400
+        except errors.JoseError as ex:
+            logging.warning(ex)
+            return "[403 Forbidden]", 403
+
+
+def make_flask_app(config, username, password, url_prefix, oauth2_token_verification_key, oauth2_token_verification_header, compatibility_mode=True):
     """Return Flask app with default configuration and registered blueprint."""
     app = Flask(__name__)
 
@@ -46,6 +70,23 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
     # Override from a configuration file in the env variable, if present.
     if "RQ_DASHBOARD_SETTINGS" in os.environ:
         app.config.from_envvar("RQ_DASHBOARD_SETTINGS")
+
+    app.config.setdefault('OAUTH2_TOKEN_VERIFICATION_KEY', os.environ.get('OAUTH2_TOKEN_VERIFICATION_KEY'))
+    app.config.setdefault('OAUTH2_TOKEN_VERIFICATION_HEADER', os.environ.get('OAUTH2_TOKEN_VERIFICATION_HEADER'))
+
+    if oauth2_token_verification_key:
+        app.config['OAUTH2_TOKEN_VERIFICATION_KEY'] = oauth2_token_verification_key
+    if oauth2_token_verification_header:
+        app.config['OAUTH2_TOKEN_VERIFICATION_HEADER'] = oauth2_token_verification_header
+
+    if app.config['OAUTH2_TOKEN_VERIFICATION_KEY'] and app.config['OAUTH2_TOKEN_VERIFICATION_HEADER']:
+        if WITH_OAUTH:
+            add_oauth2_token_validation(app.config['OAUTH2_TOKEN_VERIFICATION_KEY'],
+                                        app.config['OAUTH2_TOKEN_VERIFICATION_HEADER'])
+        else:
+            raise RuntimeError(
+                "Please install oauth extension for rq_dashboard."
+            )
 
     # Optionally add basic auth to blueprint and register with app.
     if username:
@@ -162,6 +203,12 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
 @click.option(
     "-j", "--json", is_flag=True, default=False, help="Enable JSONSerializer"
 )
+@click.option(
+    "--oauth2-token-verification-key", default=None, help="Verification key for oauth2 access_token verification (when oauth2 provider is used as middleware or reverse proxy. For example: oauth2_proxy+KeyCloak. oauth2 extension is required"
+)
+@click.option(
+    "--oauth2-token-verification-header", default=None, help="Name for header containing oauth2 jwt token (for example for oauth2_proxy it will be 'X-Forwarded-Access-Token'). oauth2 extension is required"
+)
 def run(
     bind,
     port,
@@ -184,6 +231,8 @@ def run(
     disable_delete,
     verbose,
     json,
+    oauth2_token_verification_key,
+    oauth2_token_verification_header
 ):
     """Run the RQ Dashboard Flask server.
 
@@ -200,7 +249,7 @@ def run(
         sys.path += list(extra_path)
 
     click.echo("RQ Dashboard version {}".format(VERSION))
-    app = make_flask_app(config, username, password, url_prefix)
+    app = make_flask_app(config, username, password, url_prefix, oauth2_token_verification_key, oauth2_token_verification_header)
     app.config["DEPRECATED_OPTIONS"] = []
     if app.config.get("RQ_DASHBOARD_REDIS_URL") is None:
         if redis_url:

@@ -6,7 +6,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 	&& rm -rf /var/lib/apt/lists/*
 
 ADD . /
-RUN pip3 install -r requirements.txt
+RUN pip3 install '.[oauth2]'
 RUN python3 setup.py develop
 
 EXPOSE 9181
