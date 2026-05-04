@@ -41,6 +41,7 @@ from rq import (
     requeue_job,
 )
 from rq.exceptions import NoSuchJobError
+from rq.utils import get_call_string
 from rq.job import Job
 from rq.registry import (
     BaseRegistry,
@@ -205,23 +206,12 @@ def serialize_date(dt):
 
 
 def format_job_description(job):
-    max_len = current_app.config.get("RQ_DASHBOARD_SHOW_FULL_ARGS", 500)
+    max_len = current_app.config.get("RQ_DASHBOARD_SHOW_FULL_ARGS")
     
-    items = []
+    if not max_len:
+        return job.description
 
-    for arg in job.args:
-        items.append(repr(arg))
-
-    for key, value in job.kwargs.items():
-        items.append(f"{key}={repr(value)}")
-
-    params = ", ".join(items)
-
-    if max_len > 0:
-        if len(params) > max_len:
-            params = params[:max_len] + "..."
-
-    return f"{job.func_name}({params})"
+    return get_call_string(job.func_name, job.args, job.kwargs, max_length=max_len)
 
 
 def serialize_job(job: Job):
