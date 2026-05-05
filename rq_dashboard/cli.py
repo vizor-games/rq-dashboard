@@ -166,7 +166,7 @@ def make_flask_app(config, username, password, url_prefix, compatibility_mode=Tr
     "--show-full-args",
     is_flag=True, 
     default=False,
-    help="Max length of job args to display",
+    help="Display full length of job arguments",
     )
 def run(
     bind,
