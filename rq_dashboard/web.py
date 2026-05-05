@@ -206,12 +206,12 @@ def serialize_date(dt):
 
 
 def format_job_description(job):
-    max_len = current_app.config.get("RQ_DASHBOARD_SHOW_FULL_ARGS")
+    show_full = current_app.config.get("RQ_DASHBOARD_SHOW_FULL_ARGS", False)
     
-    if not max_len:
+    if not show_full:
         return job.description
 
-    return get_call_string(job.func_name, job.args, job.kwargs, max_length=max_len)
+    return get_call_string(job.func_name, job.args, job.kwargs, max_length=None)
 
 
 def serialize_job(job: Job):
