@@ -41,6 +41,7 @@ from rq import (
     requeue_job,
 )
 from rq.exceptions import NoSuchJobError
+from rq.utils import get_call_string
 from rq.job import Job
 from rq.registry import (
     BaseRegistry,
@@ -204,6 +205,15 @@ def serialize_date(dt):
     return arrow.get(dt).to("UTC").datetime.isoformat()
 
 
+def format_job_description(job):
+    show_full = current_app.config.get("RQ_DASHBOARD_SHOW_FULL_ARGS", False)
+    
+    if not show_full:
+        return job.description
+
+    return get_call_string(job.func_name, job.args, job.kwargs, max_length=None)
+
+
 def serialize_job(job: Job):
     latest_result = job.latest_result()
     return dict(
@@ -212,7 +222,7 @@ def serialize_job(job: Job):
         started_at=serialize_date(job.started_at),
         ended_at=serialize_date(job.ended_at),
         exc_info=latest_result.exc_string if latest_result else None,
-        description=job.description,
+        description=format_job_description(job),
     )
 
 
@@ -221,7 +231,7 @@ def serialize_current_job(job):
         return "idle"
     return dict(
         job_id=job.id,
-        description=job.description,
+        description=format_job_description(job),
         created_at=serialize_date(job.created_at),
         call_string=job.get_call_string(),
     )
@@ -621,7 +631,7 @@ def job_info(instance_number, job_id):
         status=job.get_status(),
         result=job.return_value(),
         exc_info=latest_result.exc_string if latest_result else None,
-        description=job.description,
+        description=format_job_description(job),
         metadata=json.dumps(job.get_meta(), cls=json_encoder)
     )
     dep_ids = [di.decode("utf-8").split(':')[-1].strip() for di in job.dependency_ids]
