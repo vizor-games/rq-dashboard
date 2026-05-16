@@ -32,6 +32,14 @@ setup(
     zip_safe=False,
     platforms='any',
     install_requires=['rq>=1.0', 'Flask', 'redis', 'arrow', 'redis-sentinel-url'],
+    extras_require={
+        'oauth': [
+            'Authlib>=1.6.5',
+            'python-dotenv>=1.2.1',
+            'requests>=2.32.5',
+            'cryptography>=46.0.3',
+        ]
+    },
     entry_points={
         'console_scripts': [
             'rq-dashboard = rq_dashboard.cli:main'
